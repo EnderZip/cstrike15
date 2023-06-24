@@ -107,7 +107,7 @@ void SCR_BeginLoadingPlaque( const char *levelName /*= NULL*/ )
 		g_pMDLCache->FinishPendingLoads();
 
 		// redraw with no console and the loading plaque
-		Con_ClearNotify();
+		//Con_ClearNotify();
 
 		// NULL HudText clears HudMessage system
 		if ( g_ClientDLL )
@@ -123,7 +123,7 @@ void SCR_BeginLoadingPlaque( const char *levelName /*= NULL*/ )
 			"OnEngineLevelLoadingStarted", "name", levelName ) );
 
 		// Don't run any more simulation on the client!!!
-		g_ClientGlobalVariables.frametime = 0.0f;
+		//g_ClientGlobalVariables.frametime = 0.0f;
 
 		host_framecount++;
 		g_ClientGlobalVariables.framecount = host_framecount;
@@ -147,6 +147,9 @@ void SCR_EndLoadingPlaque( void )
 	// MATCHMAKING:UNDONE: This pattern came over from l4d but needed to change since the new clients don't have the same mission/game structure
 	if ( scr_drawloading )
 	{
+		extern void S_ShutdownMapLoadThread();
+		S_ShutdownMapLoadThread();
+
 #if defined( _DEMO ) && defined( _X360 )
 		// allow demo timeouts
 		Host_EnableDemoTimeout( true );

@@ -253,62 +253,65 @@ void RememberInitialEntityPositions( int nEntities, HierarchicalSpawn_t *pSpawnL
 
 void SpawnAllEntities( int nEntities, HierarchicalSpawn_t *pSpawnList, bool bActivateEntities )
 {
-	int nEntity;
-	for (nEntity = 0; nEntity < nEntities; nEntity++)
+	if (ThreadInMainThread)
 	{
-		VPROF( "MapEntity_ParseAllEntities_Spawn");
-		CBaseEntity *pEntity = pSpawnList[nEntity].m_pEntity;
-
-		if ( pSpawnList[nEntity].m_pDeferredParent )
-		{
-			// UNDONE: Promote this up to the root of this function?
-			MDLCACHE_CRITICAL_SECTION();
-			CBaseEntity *pParent = pSpawnList[nEntity].m_pDeferredParent;
-			int iAttachment = -1;
-			CBaseAnimating *pAnim = pParent->GetBaseAnimating();
-			if ( pAnim )
-			{
-				iAttachment = pAnim->LookupAttachment(pSpawnList[nEntity].m_pDeferredParentAttachment);
-			}
-			pEntity->SetParent( pParent, iAttachment );
-		}
-		if ( pEntity )
-		{
-			if (DispatchSpawn(pEntity) < 0)
-			{
-				// Walk through all entities in this list in case spawning an entity
-				// resulted in another one being UTIL_Remove'd
-				for ( int i = 0; i < nEntities; i++ )
-				{
-					// this is a child object that will be deleted now
-					if ( pSpawnList[i].m_pEntity && pSpawnList[i].m_pEntity->IsMarkedForDeletion() )
-					{
-						pSpawnList[i].m_pEntity = NULL;
-					}
-				}
-				// Spawn failed.
-				gEntList.CleanupDeleteList();
-				// Remove the entity from the spawn list
-				pSpawnList[nEntity].m_pEntity = NULL;
-			}
-		}
-	}
-
-	if ( bActivateEntities )
-	{
-		VPROF( "MapEntity_ParseAllEntities_Activate");
-		bool bAsyncAnims = mdlcache->SetAsyncLoad( MDLCACHE_ANIMBLOCK, false );
+		int nEntity;
 		for (nEntity = 0; nEntity < nEntities; nEntity++)
 		{
-			CBaseEntity *pEntity = pSpawnList[nEntity].m_pEntity;
+			VPROF("MapEntity_ParseAllEntities_Spawn");
+			CBaseEntity* pEntity = pSpawnList[nEntity].m_pEntity;
 
-			if ( pEntity )
+			if (pSpawnList[nEntity].m_pDeferredParent)
 			{
+				// UNDONE: Promote this up to the root of this function?
 				MDLCACHE_CRITICAL_SECTION();
-				pEntity->Activate();
+				CBaseEntity* pParent = pSpawnList[nEntity].m_pDeferredParent;
+				int iAttachment = -1;
+				CBaseAnimating* pAnim = pParent->GetBaseAnimating();
+				if (pAnim)
+				{
+					iAttachment = pAnim->LookupAttachment(pSpawnList[nEntity].m_pDeferredParentAttachment);
+				}
+				pEntity->SetParent(pParent, iAttachment);
+			}
+			if (pEntity)
+			{
+				if (DispatchSpawn(pEntity) < 0)
+				{
+					// Walk through all entities in this list in case spawning an entity
+					// resulted in another one being UTIL_Remove'd
+					for (int i = 0; i < nEntities; i++)
+					{
+						// this is a child object that will be deleted now
+						if (pSpawnList[i].m_pEntity && pSpawnList[i].m_pEntity->IsMarkedForDeletion())
+						{
+							pSpawnList[i].m_pEntity = NULL;
+						}
+					}
+					// Spawn failed.
+					gEntList.CleanupDeleteList();
+					// Remove the entity from the spawn list
+					pSpawnList[nEntity].m_pEntity = NULL;
+				}
 			}
 		}
-		mdlcache->SetAsyncLoad( MDLCACHE_ANIMBLOCK, bAsyncAnims );
+
+		if (bActivateEntities)
+		{
+			VPROF("MapEntity_ParseAllEntities_Activate");
+			bool bAsyncAnims = mdlcache->SetAsyncLoad(MDLCACHE_ANIMBLOCK, false);
+			for (nEntity = 0; nEntity < nEntities; nEntity++)
+			{
+				CBaseEntity* pEntity = pSpawnList[nEntity].m_pEntity;
+
+				if (pEntity)
+				{
+					MDLCACHE_CRITICAL_SECTION();
+					pEntity->Activate();
+				}
+			}
+			mdlcache->SetAsyncLoad(MDLCACHE_ANIMBLOCK, bAsyncAnims);
+		}
 	}
 }
 

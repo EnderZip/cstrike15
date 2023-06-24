@@ -55,7 +55,6 @@ extern bool		g_bAbortServerSet;
 extern ConVar	reload_materials;
 #endif
 CJob* pMapJob = NULL;
-bool b_startedNewGame = false;
 
 typedef enum 
 {
@@ -125,11 +124,7 @@ void S_ShutdownMapLoadThread()
 {
 	if (pMapJob)
 	{
-		b_startedNewGame = true;
 		pMapJob = NULL;
-		//ThreadJoin(g_hMapLoadThread);
-		//ReleaseThreadHandle(g_hMapLoadThread);
-		//g_hMapLoadThread = NULL;
 	}
 }
 
@@ -138,7 +133,11 @@ void Host_ThreadedNewGame()
 	g_HostState.State_NewGame();
 }
 
-//CJob* pMapJob = pMapJob = new CFunctorJob(CreateFunctor(Host_ThreadedNewGame));
+void Host_ThreadedChangeLevelMP()
+{
+	g_HostState.State_ChangeLevelMP();
+}
+
 
 
 //-----------------------------------------------------------------------------
@@ -462,7 +461,6 @@ void CHostState::State_NewGame()
 				{
 					// succesfully started the new game
 					SetState( HS_RUN, true );
-					S_ShutdownMapLoadThread();
 					return;
 				}
 			}
@@ -540,6 +538,7 @@ void CHostState::State_ChangeLevelMP()
 #endif
 			Host_Changelevel( false, m_levelName, m_mapGroupName, m_landmarkName );
 			SetState( HS_RUN, true );
+
 			return;
 		}
 	}
@@ -791,7 +790,6 @@ void CHostState::FrameUpdate( float time )
 	g_bAbortServerSet = true;
 	extern void Host_UpdateScreen();
 	MaterialLock_t lock = NULL;
-	bool inited = false;
 	while ( true )
 	{
 		if ( g_szHostStateDelayedMessage )
@@ -813,37 +811,17 @@ void CHostState::FrameUpdate( float time )
 		{
 		case HS_NEW_GAME:
 			g_pMDLCache->BeginMapLoad();
-			//State_NewGame();
-			//if (!b_startedNewGame)
-			//{
-			//	b_startedNewGame = true;
-			//	g_pThreadPool->AddJob(pMapJob); 
-			//}
 	        if (pMapJob)
 	        {
-		        //if (!inited)
-		        //{
-		         // 	inited = true;
-		        //  	ThreadSleep(500);
-		       // }
 				lock = materials->Lock();
 		        Host_UpdateScreen();
 				materials->Unlock(lock);
 	        }
 			else
 			{
-				//ShutdownWellKnownRenderTargets();
-				//InitWellKnownRenderTargets();
-				b_startedNewGame = false;
 				pMapJob = new CFunctorJob(CreateFunctor(Host_ThreadedNewGame));
 				g_pThreadPool->AddJob(pMapJob);
 			}
-			
-			//Msg("cok\n");
-			//lock = materials->Lock();
-			//Host_UpdateScreen();
-			//materials->Unlock(lock);
-			//g_pThreadPool->QueueCall(Host_ThreadedNewGame);
 			break;
 		case HS_LOAD_GAME:
 			g_pMDLCache->BeginMapLoad();
@@ -852,7 +830,17 @@ void CHostState::FrameUpdate( float time )
 		case HS_CHANGE_LEVEL_MP:
 			g_pMDLCache->BeginMapLoad();
 			m_flShortFrameTime = 0.5f;
-			State_ChangeLevelMP();
+			if (pMapJob)
+			{
+				lock = materials->Lock();
+				Host_UpdateScreen();
+				materials->Unlock(lock);
+			}
+			else
+			{
+				pMapJob = new CFunctorJob(CreateFunctor(Host_ThreadedChangeLevelMP));
+				g_pThreadPool->AddJob(pMapJob);
+			}
 			break;
 		case HS_CHANGE_LEVEL_SP:
 			g_pMDLCache->BeginMapLoad();
